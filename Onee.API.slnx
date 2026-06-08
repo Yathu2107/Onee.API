@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="OneeProject.Database/OneeProject.Database.csproj" />
+  <Project Path="OneeProject.Services/OneeProject.Services.csproj" />
+  <Project Path="OneeProjectAPI/OneeProjectAPI.csproj" />
+  <Project Path="OneeProjectFEAPI/OneeProjectFEAPI.csproj" />
+</Solution>

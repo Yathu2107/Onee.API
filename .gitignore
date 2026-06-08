@@ -1,0 +1,53 @@
+# Build outputs
+bin/
+obj/
+
+# Visual Studio files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# NuGet
+*.nupkg
+**/packages/
+!**/packages/build/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# ASP.NET Core
+wwwroot/lib/
+
+# Logs
+Logs/
+*.log
+
+# User-specific settings
+launchSettings.json
+
+# Environment-specific app settings
+appsettings.Development.json
+
+# Publish profiles
+**/Properties/PublishProfiles/
+
+# Rider / JetBrains
+.idea/
+*.sln.iml
+
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+
+# Node (if any front-end tooling)
+node_modules/
+npm-debug.log*
+
+# Uploads (runtime user content)
+wwwroot/Uploads/
