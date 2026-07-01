@@ -18,7 +18,7 @@ project.fragment.lock.json
 artifacts/
 
 # ASP.NET Core
-wwwroot/lib/
+wwwroot/
 
 # Logs
 Logs/
