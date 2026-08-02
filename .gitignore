@@ -42,6 +42,9 @@ Thumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 
+# Secrets (Firebase service account, etc.)
+**/secrets/
+
 # macOS
 .DS_Store
 

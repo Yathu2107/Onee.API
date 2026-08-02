@@ -9,6 +9,20 @@ namespace OneeProject.Database.Context
        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
         }
+
+        #region DataTables
+        public DbSet<Category> Categories { get; set; }
+        public DbSet<WorkerCategory> WorkerCategories { get; set; }
+        public DbSet<Job> Jobs { get; set; }
+        public DbSet<JobChatMessage> JobChatMessages { get; set; }
+        public DbSet<JobRating> JobRatings { get; set; }
+        public DbSet<DeviceToken> DeviceTokens { get; set; }
+        public DbSet<SavedAddress> SavedAddresses { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
+        public DbSet<AdminNotification> AdminNotifications { get; set; }
+        public DbSet<Complaint> Complaints { get; set; }
+        #endregion
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -50,6 +64,35 @@ namespace OneeProject.Database.Context
             // ✅ Unique constraint on Email + Mobile
             builder.Entity<AppUser>()
                 .HasIndex(u => new { u.Email, u.PhoneNumber })
+                .IsUnique();
+
+            // Composite Primary Key
+            builder.Entity<WorkerCategory>()
+                .HasKey(x => new { x.FK_user_ID, x.Category_id });
+
+            // One rating per job
+            builder.Entity<JobRating>()
+                .HasIndex(r => r.FK_job_ID)
+                .IsUnique();
+
+            builder.Entity<DeviceToken>()
+                .HasIndex(t => t.Token)
+                .IsUnique();
+
+            builder.Entity<DeviceToken>()
+                .HasIndex(t => t.FK_user_ID);
+
+            builder.Entity<SavedAddress>()
+                .HasIndex(a => a.FK_user_ID);
+
+            builder.Entity<Notification>()
+                .HasIndex(n => new { n.FK_user_ID, n.Is_Read });
+
+            builder.Entity<Notification>()
+                .HasIndex(n => n.FK_job_ID);
+
+            builder.Entity<Complaint>()
+                .HasIndex(c => c.FK_job_ID)
                 .IsUnique();
         }
     }

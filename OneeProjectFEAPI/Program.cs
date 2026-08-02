@@ -5,24 +5,63 @@ using Microsoft.IdentityModel.Tokens;
 using OneeProject.Database.Common;
 using OneeProject.Database.Context;
 using OneeProject.Services.FeServices;
+using OneeProject.Services.FeServices.User;
+using OneeProject.Services.FeServices.Worker;
 using OneeProject.Services.Services;
+using OneeProject.Services.Services.Push;
+using OneeProject.Services.Services.Realtime;
+using OneeProjectFEAPI.BackgroundServices;
+using OneeProjectFEAPI.Hubs;
+using OneeProjectFEAPI.Realtime;
 using Serilog;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ✅ Configure MySQL with Pomelo
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(
         builder.Configuration.GetConnectionString("DefaultConnection"),
         ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))
     ));
 
-// Services
 builder.Services.AddScoped<FeSaveFiles>();
+builder.Services.AddScoped<CommunicationService>();
+builder.Services.AddScoped<DeviceTokenService>();
 builder.Services.AddScoped<FEAccountService>();
+builder.Services.AddScoped<FEWorkerAccountService>();
+builder.Services.AddScoped<FEJobService>();
+builder.Services.AddScoped<FEWorkerJobService>();
+builder.Services.AddScoped<FEAddressService>();
+builder.Services.AddScoped<FEWorkerAddressService>();
+builder.Services.AddScoped<FENotificationService>();
+builder.Services.AddScoped<FEWorkerNotificationService>();
+builder.Services.AddScoped<FEComplaintService>();
+builder.Services.AddScoped<AddressService>();
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<ComplaintService>();
+builder.Services.AddScoped<JobMatchService>();
+builder.Services.AddScoped<JobService>();
+builder.Services.AddScoped<JobRatingService>();
+builder.Services.AddScoped<FcmPushService>();
+builder.Services.AddScoped<IPushNotificationSender>(sp => sp.GetRequiredService<FcmPushService>());
+builder.Services.AddScoped<SignalRJobNotifier>();
+builder.Services.AddScoped<CompositeJobNotifier>();
+builder.Services.AddScoped<IJobRealtimeNotifier>(sp =>
+    new PersistingJobRealtimeNotifier(
+        sp.GetRequiredService<CompositeJobNotifier>(),
+        sp.GetRequiredService<NotificationService>()));
+builder.Services.AddHostedService<OfferTimeoutService>();
 
-// ✅ Configure Identity with custom AppUser
+builder.Services.AddHttpClient("OneeeAi", (sp, client) =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var baseUrl = config["OneeeAi:BaseUrl"]?.TrimEnd('/') ?? "http://127.0.0.1:8000";
+    var apiKey = config["OneeeAi:ApiKey"] ?? string.Empty;
+    client.BaseAddress = new Uri(baseUrl);
+    client.DefaultRequestHeaders.Add("X-API-Key", apiKey);
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
+
 builder.Services.AddIdentity<AppUser, IdentityRole>(config =>
 {
     config.Password.RequireDigit = false;
@@ -30,7 +69,6 @@ builder.Services.AddIdentity<AppUser, IdentityRole>(config =>
     config.Password.RequireLowercase = false;
     config.Password.RequireNonAlphanumeric = false;
     config.Password.RequireUppercase = false;
-
     config.User.AllowedUserNameCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+/  ";
     config.SignIn.RequireConfirmedAccount = true;
     config.Lockout.AllowedForNewUsers = true;
@@ -38,7 +76,6 @@ builder.Services.AddIdentity<AppUser, IdentityRole>(config =>
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders();
 
-// JWT Auth
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -55,12 +92,23 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = builder.Configuration["Jwt:Issuer"],
         ValidAudience = builder.Configuration["Jwt:Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"])
+            Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)
         )
+    };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/job"))
+                context.Token = accessToken;
+            return Task.CompletedTask;
+        }
     };
 });
 
-// Load Serilog from config + enrichers
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .CreateLogger();
@@ -70,11 +118,9 @@ builder.Host.UseSerilog();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
-// Add memory caching for token blacklisting and other scenarios
 builder.Services.AddMemoryCache();
+builder.Services.AddSignalR();
 
-// CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
@@ -86,21 +132,13 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Load ID Encrypt secret key
 CommonResources.SecretKey = builder.Configuration["Security:SecretKey"];
-
-// Add services to the container.
-builder.Services.AddControllers();
 
 var app = builder.Build();
 
-// Use CORS before routing
 app.UseCors("AllowReactApp");
-
-
 app.UseSerilogRequestLogging();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -109,10 +147,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
+app.MapHub<JobHub>("/hubs/job");
 
 app.Run();

@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -8,10 +9,10 @@ using OneeProject.Database.Context;
 using OneeProject.Database.Model.API_Model;
 using OneeProject.Services.Helper;
 using System.IdentityModel.Tokens.Jwt;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace OneeProject.Services.Services
 {
@@ -40,21 +41,10 @@ namespace OneeProject.Services.Services
                     u = SaveFiles.SetImageUrl(u, images, imageProperties, "User");
                 }
 
-                // Decide password
-                string password;
-                bool isAutoPassword = u.PasswordMode?.ToUpper() == "AUTO";
-
-                if (isAutoPassword)
-                {
-                    password = GenerateStrongPassword();
-                }
-                else
-                {
-                    password = u.Password;
-
-                    if (string.IsNullOrWhiteSpace(password))
-                        return (false, "Password is required.");
-                }
+                // Password is required
+                var password = u.Password;
+                if (string.IsNullOrWhiteSpace(password))
+                    return (false, "Password is required.");
 
                 // Create user
                 var user = new AppUser
@@ -70,7 +60,7 @@ namespace OneeProject.Services.Services
                     UserType = u.UserType,
 
                     IsActive = true,
-                    MustChangePassword = isAutoPassword
+                    IsOnline = false
                 };
 
                 var result = await _userManager.CreateAsync(user, password);
@@ -101,41 +91,7 @@ namespace OneeProject.Services.Services
                 // Commit transaction
                 await transaction.CommitAsync();
 
-                // Send email after successful commit
-                if (isAutoPassword)
-                {
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            var htmlBody = EmailTemplateHelper.LoadAndFormat(
-                                "AutoPasswordTemplate.html",
-                                new Dictionary<string, string>
-                                {
-                            { "PASSWORD", password }
-                                });
-
-                            var emailService = new EmailService(_config);
-
-                            await emailService.SendEmailAsync(
-                                user.Email,
-                                "Your MPMart Account Password",
-                                htmlBody
-                            );
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine("EMAIL FAILED: " + ex.Message);
-                        }
-                    });
-                }
-
-                return (
-                    true,
-                    isAutoPassword
-                        ? "User registered successfully. Password sent via email."
-                        : "User registered successfully."
-                );
+                return (true, "User registered successfully.");
             }
             catch (Exception ex)
             {
@@ -143,11 +99,6 @@ namespace OneeProject.Services.Services
 
                 return (false, $"Transaction failed: {ex.Message}");
             }
-        }
-
-        private string GenerateStrongPassword()
-        {
-            return $"Mp@{Guid.NewGuid():N}".Substring(0, 12) + "A1!";
         }
 
         public async Task<AuthenticationModel?> LoginAsync(TokenRequestModel model)
@@ -184,22 +135,6 @@ namespace OneeProject.Services.Services
             // Reset failed attempts
             await _userManager.ResetAccessFailedCountAsync(user);
 
-            // 🔥 FORCE PASSWORD RESET (AUTO PASSWORD FLOW)
-            if (user.MustChangePassword)
-            {
-                return new AuthenticationModel
-                {
-                    Message = "Password reset required.",
-                    Email = user.Email,
-                    UserName = user.Name,
-                    ForcePasswordReset = true,
-
-                    // 🔒 Do NOT issue tokens
-                    Token = null,
-                    RefreshToken = null
-                };
-            }
-
             // Fetch roles
             var roles = await _userManager.GetRolesAsync(user);
 
@@ -207,8 +142,9 @@ namespace OneeProject.Services.Services
             var jwtToken = await GenerateJwtTokenAsync(user, roles);
             var refreshToken = GenerateRefreshToken();
 
-            // Last login auditing
+            // Last login auditing + mark online
             user.LastLoginDate = CommonResources.LocalDatetime();
+            user.IsOnline = true;
             await _userManager.UpdateAsync(user);
 
             return new AuthenticationModel
@@ -221,8 +157,35 @@ namespace OneeProject.Services.Services
                 RefreshToken = refreshToken,
                 RefreshTokenExpiration = model.RememberMe
                     ? DateTime.UtcNow.AddDays(7)
-                    : DateTime.UtcNow.AddHours(1),
-                ForcePasswordReset = false
+                    : DateTime.UtcNow.AddHours(1)
+            };
+        }
+
+        public async Task<Message<string>> LogoutAsync(string userId)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                return new Message<string>
+                {
+                    Status = "E",
+                    Text = "User not found.",
+                    Code = "404",
+                    Result = null
+                };
+            }
+
+            user.IsOnline = false;
+            user.LastUpdatedOn = CommonResources.LocalDatetime();
+            user.LastUpdatedBy = userId;
+            await _userManager.UpdateAsync(user);
+
+            return new Message<string>
+            {
+                Status = "S",
+                Text = "Logged out successfully.",
+                Code = "200",
+                Result = string.Empty
             };
         }
 
@@ -230,15 +193,13 @@ namespace OneeProject.Services.Services
         private AuthenticationModel Failed(
         string message,
         string email,
-        string? username = null,
-        bool forcePasswordReset = false)
+        string? username = null)
         {
             return new AuthenticationModel
             {
                 Message = message,
                 Email = email,
                 UserName = username,
-                ForcePasswordReset = forcePasswordReset,
                 Token = null,
                 RefreshToken = null
             };
@@ -356,6 +317,7 @@ namespace OneeProject.Services.Services
                     UserType = u.UserType,
                     ProfileImageUrl = u.ProfileImageUrl,
                     IsActive = u.IsActive ? "Active" : "Blocked",
+                    IsOnline = u.IsOnline ? "Online" : "Offline",
                     CreatedAt = u.CreatedAt,
                     LastLoginDate = u.LastLoginDate
                 })
@@ -381,8 +343,41 @@ namespace OneeProject.Services.Services
                     UserType = u.UserType,
                     ProfileImageUrl = u.ProfileImageUrl,
                     IsActive = u.IsActive ? "Active" : "Blocked",
+                    IsOnline = u.IsOnline ? "Online" : "Offline",
+                    Latitude = 0.0,
+                    Longitude = 0.0
+
                 })
                 .SingleOrDefaultAsync();
+
+            if (data == null)
+                return null!;
+
+            var addresses = await _context.SavedAddresses
+                .Where(a => a.FK_user_ID == userId)
+                .OrderByDescending(a => a.Is_Default)
+                .ThenByDescending(a => a.CreatedOn)
+                .ToListAsync();
+
+            data.Addresses = addresses.Select(a => new SavedAddressModelForView
+            {
+                Id = a.Id,
+                FK_user_ID = a.FK_user_ID,
+                Label = a.Label,
+                Address_Line = a.Address_Line,
+                Latitude = a.Latitude,
+                Longitude = a.Longitude,
+                Is_Default = a.Is_Default,
+                CreatedOn = a.CreatedOn,
+                LastUpdatedOn = a.LastUpdatedOn
+            }).ToList();
+
+            var defaultAddress = data.Addresses.FirstOrDefault(a => a.Is_Default);
+            if (defaultAddress != null)
+            {
+                data.Latitude = defaultAddress.Latitude;
+                data.Longitude = defaultAddress.Longitude;
+            }
 
             return data;
         }
@@ -424,6 +419,7 @@ namespace OneeProject.Services.Services
             existUser.Email = model.Email;
             existUser.PhoneNumber = model.PhoneNumber;
             existUser.UserType = model.UserType;
+            // Location lives in t_saved_addresses — do not write t_user lat/lng
             existUser.LastUpdatedBy = model.LastUpdatedBy;
             existUser.LastUpdatedOn = model.LastUpdatedOn;
 
@@ -451,30 +447,20 @@ namespace OneeProject.Services.Services
                 }
             }
 
-            // 🔥 PASSWORD LOGIC (MANUAL / AUTO)
-            string? newPassword = null;
-            bool isAutoPassword = model.PasswordMode?.ToUpper() == "AUTO";
-
-            if (isAutoPassword)
+            // Online / Offline
+            if (!string.IsNullOrEmpty(model.IsOnline))
             {
-                newPassword = GenerateStrongPassword();
-                existUser.MustChangePassword = true;
-            }
-            else if (
-                model.PasswordMode?.ToUpper() == "MANUAL" &&
-                !string.IsNullOrWhiteSpace(model.Password)
-            )
-            {
-                newPassword = model.Password;
+                existUser.IsOnline = model.IsOnline.Trim().ToLower() == "true";
             }
 
-            if (!string.IsNullOrEmpty(newPassword))
+            // Optional password update (admin provides a new password)
+            if (!string.IsNullOrWhiteSpace(model.Password))
             {
                 var resetToken = await _userManager.GeneratePasswordResetTokenAsync(existUser);
                 var passwordResult = await _userManager.ResetPasswordAsync(
                     existUser,
                     resetToken,
-                    newPassword
+                    model.Password
                 );
 
                 if (!passwordResult.Succeeded)
@@ -502,41 +488,10 @@ namespace OneeProject.Services.Services
 
             await _userManager.UpdateAsync(existUser);
 
-            // 🔥 Send auto password email
-            if (isAutoPassword && newPassword != null)
-            {
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        var htmlBody = EmailTemplateHelper.LoadAndFormat(
-                            "AutoPasswordTemplate.html",
-                            new Dictionary<string, string>
-                            {
-                    { "PASSWORD", newPassword }
-                            });
-
-                        var emailService = new EmailService(_config);
-                        await emailService.SendEmailAsync(
-                            existUser.Email,
-                            "Your MPMart Account Password Updated",
-                            htmlBody
-                        );
-                    }
-                    catch (Exception ex)
-                    {
-                        // Log the error instead of blocking
-                        Console.WriteLine("EMAIL FAILED: " + ex.Message);
-                    }
-                });
-            }
-
             return new Message<string>
             {
                 Status = "S",
-                Text = isAutoPassword
-                    ? "User updated successfully. New password sent via email."
-                    : "User updated successfully.",
+                Text = "User updated successfully.",
                 Result = existUser.Id
             };
         }
@@ -664,44 +619,6 @@ namespace OneeProject.Services.Services
         }
 
 
-        public async Task<Message<string>> ResetAutoGeneratedPasswordAsync(string email, string newPassword)
-        {
-            email = email.Trim().ToLower();
-
-            var user = await _userManager.FindByEmailAsync(email);
-            if (user == null)
-                return new Message<string> { Status = "F", Text = "Invalid request." };
-
-            if (!user.MustChangePassword)
-                return new Message<string>
-                {
-                    Status = "F",
-                    Text = "Password reset not required for this account."
-                };
-
-            var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
-            var result = await _userManager.ResetPasswordAsync(user, resetToken, newPassword);
-
-            if (!result.Succeeded)
-            {
-                return new Message<string>
-                {
-                    Status = "F",
-                    Text = string.Join("; ", result.Errors.Select(e => e.Description))
-                };
-            }
-
-            user.MustChangePassword = false;
-            await _userManager.UpdateAsync(user);
-
-            return new Message<string>
-            {
-                Status = "S",
-                Text = "Password reset successfully. You can now login."
-            };
-        }
-
-
         public Task<List<UsersForDropdown>> GetAllUsersForListAsync()
         {
             return _context.Users
@@ -712,6 +629,85 @@ namespace OneeProject.Services.Services
                     Name = c.Name,
                 })
                 .ToListAsync();
+        }
+
+        public Task<List<UsersForDropdown>> GetAllUsersForListByRoleAsync(string id)
+        {
+            var query = _context.Users.AsQueryable();
+            switch (id)
+            {
+                case "1":
+                    query = query.Where(u => u.UserType == "User");
+                    break;
+
+                case "2":
+                    query = query.Where(u => u.UserType == "Admin");
+                    break;
+
+                case "3":
+                    query = query.Where(u => u.UserType == "Worker");
+                    break;
+            }
+
+            return query
+                .Where(c => c.IsActive == true)
+                .Select(c => new UsersForDropdown
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                })
+                .ToListAsync();
+        }
+
+        public async Task<Message<string>> SetLocation(Location model, string userId, string updatedBy)
+        {
+            var existUser = GetById(userId);
+            if (existUser == null)
+            {
+                return new Message<string>
+                {
+                    Status = "E",
+                    Text = "User not found"
+                };
+            }
+
+            var now = CommonResources.LocalDatetime();
+            var existing = await _context.SavedAddresses
+                .FirstOrDefaultAsync(a => a.FK_user_ID == userId && a.Is_Default);
+
+            if (existing == null)
+            {
+                await _context.SavedAddresses
+                    .Where(a => a.FK_user_ID == userId && a.Is_Default)
+                    .ExecuteUpdateAsync(s => s.SetProperty(a => a.Is_Default, false));
+
+                _context.SavedAddresses.Add(new SavedAddress
+                {
+                    FK_user_ID = userId,
+                    Label = "Default",
+                    Address_Line = "Set by admin",
+                    Latitude = model.Latitude,
+                    Longitude = model.Longitude,
+                    Is_Default = true,
+                    CreatedBy = updatedBy,
+                    CreatedOn = now
+                });
+            }
+            else
+            {
+                existing.Latitude = model.Latitude;
+                existing.Longitude = model.Longitude;
+                existing.LastUpdatedBy = updatedBy;
+                existing.LastUpdatedOn = now;
+            }
+
+            await _context.SaveChangesAsync();
+
+            return new Message<string>
+            {
+                Status = "S",
+                Text = "Location updated successfully."
+            };
         }
     }
 }

@@ -12,10 +12,10 @@ namespace OneeProject.Database.Context
         public string ProfileImageUrl { get; set; } = string.Empty;
         public string UserType { get; set; } = string.Empty;
         public bool IsActive { get; set; } = true;
+        public bool IsOnline { get; set; } = false;
         public DateTime CreatedAt { get; set; } = CommonResources.LocalDatetime();
         public DateTime? LastLoginDate { get; set; }
         public DateTime? LastUpdatedOn { get; set; }
         public string? LastUpdatedBy { get; set; }
-        public bool MustChangePassword { get; set; } = false;
     }
 }

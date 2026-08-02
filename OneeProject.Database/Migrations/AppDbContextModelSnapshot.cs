@@ -52,21 +52,21 @@ namespace OneeProject.Database.Migrations
                         new
                         {
                             Id = "d3f1a7b2-8c4e-4f3a-9a1e-1a2b3c4d5e6f",
-                            ConcurrencyStamp = "29ffaee4-ba6c-43b4-b9e2-7cbc6c5fd451",
+                            ConcurrencyStamp = "6e5c36d3-6b3b-47d2-bfe7-1969af586cae",
                             Name = "Admin",
                             NormalizedName = "ADMIN"
                         },
                         new
                         {
                             Id = "f6e5d4c3-b2a1-0987-fedc-ba0987654321",
-                            ConcurrencyStamp = "ca57e3c9-16f7-4543-837b-e66ffdef05fb",
+                            ConcurrencyStamp = "fe398a99-0b07-4d28-8db8-20e1b1ec326c",
                             Name = "User",
                             NormalizedName = "USER"
                         },
                         new
                         {
                             Id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-                            ConcurrencyStamp = "8f87deec-b3e7-4600-8da5-be41c47b56c2",
+                            ConcurrencyStamp = "892dbc04-d054-4ebd-886b-89dd4e2941e7",
                             Name = "Worker",
                             NormalizedName = "WORKER"
                         });
@@ -178,6 +178,51 @@ namespace OneeProject.Database.Migrations
                     b.ToTable("Tbl_User_Token", (string)null);
                 });
 
+            modelBuilder.Entity("OneeProject.Database.Context.AdminNotification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Audience")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("SentBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("SentOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("t_admin_notifications");
+                });
+
             modelBuilder.Entity("OneeProject.Database.Context.AppUser", b =>
                 {
                     b.Property<string>("Id")
@@ -204,6 +249,9 @@ namespace OneeProject.Database.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<bool>("IsOnline")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<DateTime?>("LastLoginDate")
                         .HasColumnType("datetime(6)");
 
@@ -218,9 +266,6 @@ namespace OneeProject.Database.Migrations
 
                     b.Property<DateTimeOffset?>("LockoutEnd")
                         .HasColumnType("datetime(6)");
-
-                    b.Property<bool>("MustChangePassword")
-                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -276,6 +321,395 @@ namespace OneeProject.Database.Migrations
                         .IsUnique();
 
                     b.ToTable("t_user", (string)null);
+                });
+
+            modelBuilder.Entity("OneeProject.Database.Context.Category", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Category_Name")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("Isdelete")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("LastUpdatedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("LastUpdatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("m_categories");
+                });
+
+            modelBuilder.Entity("OneeProject.Database.Context.Complaint", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Admin_Response")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("FK_customer_ID")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int>("FK_job_ID")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FK_worker_ID")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("LastUpdatedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("LastUpdatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FK_job_ID")
+                        .IsUnique();
+
+                    b.ToTable("t_complaints");
+                });
+
+            modelBuilder.Entity("OneeProject.Database.Context.DeviceToken", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("FK_user_ID")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<DateTime>("LastUpdatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("varchar(512)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FK_user_ID");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.ToTable("t_device_tokens");
+                });
+
+            modelBuilder.Entity("OneeProject.Database.Context.Job", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal?>("Amount")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<string>("Cancel_Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<int>("Category_id")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<double>("Customer_Latitude")
+                        .HasColumnType("double");
+
+                    b.Property<double>("Customer_Longitude")
+                        .HasColumnType("double");
+
+                    b.Property<string>("FK_customer_ID")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("FK_worker_ID")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("LastUpdatedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("LastUpdatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("Offer_Expires_At")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Problem_Text")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Queued_Worker_Ids")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("Tried_Worker_Ids")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("t_jobs");
+                });
+
+            modelBuilder.Entity("OneeProject.Database.Context.JobChatMessage", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("FK_job_ID")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FK_sender_ID")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("t_job_chat_messages");
+                });
+
+            modelBuilder.Entity("OneeProject.Database.Context.JobRating", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("FK_customer_ID")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int>("FK_job_ID")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FK_worker_ID")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Feedback")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FK_job_ID")
+                        .IsUnique();
+
+                    b.ToTable("t_job_ratings");
+                });
+
+            modelBuilder.Entity("OneeProject.Database.Context.Notification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("FK_admin_notification_ID")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("FK_job_ID")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FK_user_ID")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<bool>("Is_Read")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FK_job_ID");
+
+                    b.HasIndex("FK_user_ID", "Is_Read");
+
+                    b.ToTable("t_notifications");
+                });
+
+            modelBuilder.Entity("OneeProject.Database.Context.SavedAddress", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Address_Line")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("FK_user_ID")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<bool>("Is_Default")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("LastUpdatedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("LastUpdatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("double");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("double");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FK_user_ID");
+
+                    b.ToTable("t_saved_addresses");
+                });
+
+            modelBuilder.Entity("OneeProject.Database.Context.WorkerCategory", b =>
+                {
+                    b.Property<string>("FK_user_ID")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)")
+                        .HasColumnName("FK_user_ID");
+
+                    b.Property<int>("Category_id")
+                        .HasColumnType("int")
+                        .HasColumnName("Category_id");
+
+                    b.HasKey("FK_user_ID", "Category_id");
+
+                    b.ToTable("t_worker_categories");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

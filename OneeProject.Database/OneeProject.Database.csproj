@@ -25,6 +25,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <Folder Include="Model\FEAPI_Model\Worker\" />
 	  <Folder Include="SqlQuery\" />
 	</ItemGroup>
 

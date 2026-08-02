@@ -7,9 +7,13 @@
   </PropertyGroup>
 
 	<ItemGroup>
+		<PackageReference Include="FirebaseAdmin" Version="3.1.0" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="8.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Http" Version="8.0.1" />
 		<PackageReference Include="Microsoft.Extensions.Identity.Core" Version="8.0.10" />
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.16.0" />
 		<PackageReference Include="System.Linq.Dynamic.Core" Version="1.7.1" />
+		<PackageReference Include="System.Net.Http.Json" Version="8.0.1" />
 		<PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.8" />
 
 		<PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.9" />
@@ -26,6 +30,10 @@
 	  <None Update="Helper\Templates\OtpTemplate.html">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="FeServices\Worker\" />
 	</ItemGroup>
 
 </Project>
