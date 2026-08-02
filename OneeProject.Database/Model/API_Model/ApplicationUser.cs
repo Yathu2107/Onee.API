@@ -10,12 +10,14 @@ namespace OneeProject.Database.Model.API_Model
         public string Name { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
-        public string PasswordMode { get; set; } = "MANUAL";
         public string? Password { get; set; }
         public string UserType { get; set; } = string.Empty;
         public string IsActive { get; set; } = string.Empty;
+        public string IsOnline { get; set; } = string.Empty;
         public string ProfileImageUrl { get; set; } = string.Empty;
         public virtual IFormFile? Image { get; set; }
+        public double Latitude { get; set; } = 0.0;
+        public double Longitude { get; set; } = 0.0;
     }
 
     public class LoginUserDetailsModel
@@ -43,7 +45,6 @@ namespace OneeProject.Database.Model.API_Model
         public string? Token { get; set; }
         public string? RefreshToken { get; set; }
         public DateTime RefreshTokenExpiration { get; set; }
-        public bool ForcePasswordReset { get; set; } = false;
     }
 
     public class AccountDetailsModelForTable
@@ -55,6 +56,7 @@ namespace OneeProject.Database.Model.API_Model
         public string UserType { get; set; } = string.Empty;
         public string ProfileImageUrl { get; set; } = string.Empty;
         public string IsActive { get; set; } = string.Empty;
+        public string IsOnline { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
         public DateTime? LastLoginDate { get; set; }
 
@@ -64,6 +66,8 @@ namespace OneeProject.Database.Model.API_Model
     {
         [JsonIgnore]
         public override IFormFile? Image { get; set; }
+
+        public List<SavedAddressModelForView> Addresses { get; set; } = new();
     }
 
     public class AccountDetailsModelForUpdate : UserRegistration
@@ -100,5 +104,11 @@ namespace OneeProject.Database.Model.API_Model
     {
         public int Count { get; set; }
         public List<AccountDetailsModelForTable> Accounts { get; set; }
+    }
+
+    public class Location
+    {
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
     }
 }

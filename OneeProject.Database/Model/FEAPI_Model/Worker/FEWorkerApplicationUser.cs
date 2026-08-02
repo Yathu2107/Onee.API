@@ -1,11 +1,8 @@
-﻿using Microsoft.AspNetCore.Http;
-using System;
-using System.Collections.Generic;
-using System.Text;
+using Microsoft.AspNetCore.Http;
 
-namespace OneeProject.Database.Model.FEAPI_Model
+namespace OneeProject.Database.Model.FEAPI_Model.Worker
 {
-    public class FEApplicationUser
+    public class FEWorkerApplicationUser
     {
         public virtual string Id { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
@@ -15,41 +12,60 @@ namespace OneeProject.Database.Model.FEAPI_Model
         public string IsActive { get; set; } = string.Empty;
         public string ProfileImageUrl { get; set; } = string.Empty;
         public virtual IFormFile? Image { get; set; }
+        public double Latitude { get; set; } = 0.0;
+        public double Longitude { get; set; } = 0.0;
     }
 
-    public class InsertUser : FEApplicationUser { }
+    public class InsertWorker : FEWorkerApplicationUser { }
 
-    public class FEUpdateUserRequest
+    public class FEUpdateWorkerRequest
     {
         public string Name { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
         public IFormFile? Image { get; set; }
     }
 
-    public class FELoggedUserDetailsModel
+    public class FELoggedWorkerDetailsModel
     {
         public string Name { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string ProImg { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
         public bool IsActive { get; set; }
+        public bool IsOnline { get; set; }
+        public double Latitude { get; set; } = 0.0;
+        public double Longitude { get; set; } = 0.0;
+        public double AverageRating { get; set; }
+        public int RatingCount { get; set; }
     }
 
-    public class OtpInfo
+    public class FEWorkerOtpInfo
     {
-        public string Code { get; set; }
+        public string Code { get; set; } = string.Empty;
         public DateTime ExpiresAt { get; set; }
         public DateTime LastRequestedAt { get; set; }
         public bool IsUsed { get; set; }
     }
 
-    public class FEVerifyOtpRequest
+    public class FEWorkerVerifyOtpRequest
     {
-        public string Mobile { get; set; }
-        public string Otp { get; set; }
+        public string PhoneNumber { get; set; } = string.Empty;
+        public string Otp { get; set; } = string.Empty;
     }
 
-    public class FEAuthenticationModel
+    public class FEWorkerLocationUpdateModel
+    {
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+    }
+
+    public class FEWorkerOnlineStatusModel
+    {
+        public bool IsOnline { get; set; }
+    }
+
+    public class FEWorkerAuthenticationModel
     {
         public string? Message { get; set; }
         public string? UserName { get; set; }
@@ -58,7 +74,6 @@ namespace OneeProject.Database.Model.FEAPI_Model
         public string? Token { get; set; }
         public string? RefreshToken { get; set; }
         public DateTime RefreshTokenExpiration { get; set; }
-        public bool ForcePasswordReset { get; set; } = false;
         public string? NextStep { get; set; } = string.Empty;
     }
 }
