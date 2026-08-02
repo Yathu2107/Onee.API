@@ -26,8 +26,18 @@ namespace OneeProject.Services.Services
                 };
             }
 
+            if (!string.Equals(worker.UserType, "Worker", StringComparison.OrdinalIgnoreCase))
+            {
+                return new Message<string>
+                {
+                    Status = "E",
+                    Text = "Categories can only be assigned to Worker accounts.",
+                    Code = "400"
+                };
+            }
+
             // Remove duplicates
-            categoryIds = categoryIds.Distinct().ToList();
+            categoryIds = (categoryIds ?? new List<int>()).Distinct().ToList();
 
             // Validate categories
             var validCategoryIds = await _context.Categories

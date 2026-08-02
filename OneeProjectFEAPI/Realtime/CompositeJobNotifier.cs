@@ -27,22 +27,12 @@ namespace OneeProjectFEAPI.Realtime
                 ["expiresAt"] = job.Offer_Expires_At?.ToString("o") ?? ""
             };
 
+            // Offer push is worker-only. Customer already knows they created the job.
             await _fcm.SendToUserAsync(
                 job.FK_worker_ID,
                 "New Onee job offer",
                 Truncate(job.Problem_Text, 80),
                 data);
-
-            await _fcm.SendToUserAsync(
-                job.FK_customer_ID,
-                "Looking for a worker",
-                "We are offering your request to nearby workers.",
-                new Dictionary<string, string>
-                {
-                    ["type"] = "job_updated",
-                    ["jobId"] = job.Id.ToString(),
-                    ["status"] = job.Status
-                });
         }
 
         public async Task NotifyJobUpdatedAsync(JobModelForDetailView job)
@@ -89,7 +79,7 @@ namespace OneeProjectFEAPI.Realtime
                 ["message"] = Truncate(message.Message, 100)
             };
 
-            var recipient = message.FK_sender_ID == customerId ? workerId : customerId;
+            var recipient = ResolveChatRecipient(customerId, workerId, message.FK_sender_ID);
             if (!string.IsNullOrEmpty(recipient))
             {
                 await _fcm.SendToUserAsync(
@@ -98,6 +88,44 @@ namespace OneeProjectFEAPI.Realtime
                     Truncate(message.Message, 80),
                     data);
             }
+        }
+
+        /// <summary>Returns the other party on the job; never the sender.</summary>
+        internal static string? ResolveChatRecipient(
+            string customerId,
+            string? workerId,
+            string? senderId)
+        {
+            var sender = (senderId ?? string.Empty).Trim();
+            var customer = (customerId ?? string.Empty).Trim();
+            var worker = (workerId ?? string.Empty).Trim();
+
+            if (string.IsNullOrEmpty(sender))
+                return null;
+
+            string? recipient;
+            if (string.Equals(sender, customer, StringComparison.OrdinalIgnoreCase))
+                recipient = string.IsNullOrEmpty(worker) ? null : worker;
+            else if (string.Equals(sender, worker, StringComparison.OrdinalIgnoreCase))
+                recipient = string.IsNullOrEmpty(customer) ? null : customer;
+            else
+            {
+                // Unknown sender — prefer non-sender party.
+                if (!string.IsNullOrEmpty(customer) &&
+                    !string.Equals(sender, customer, StringComparison.OrdinalIgnoreCase))
+                    recipient = customer;
+                else if (!string.IsNullOrEmpty(worker) &&
+                         !string.Equals(sender, worker, StringComparison.OrdinalIgnoreCase))
+                    recipient = worker;
+                else
+                    recipient = null;
+            }
+
+            if (!string.IsNullOrEmpty(recipient) &&
+                string.Equals(recipient, sender, StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            return recipient;
         }
 
         private static string Truncate(string? value, int max)

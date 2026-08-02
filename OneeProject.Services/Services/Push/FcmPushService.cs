@@ -67,9 +67,6 @@ namespace OneeProject.Services.Services.Push
             if (tokens.Count == 0)
                 return;
 
-            // Include title/body in data for foreground handling,
-            // plus a Notification payload so Android still shows a tray
-            // banner when the app process is fully killed.
             var payload = new Dictionary<string, string>(data)
             {
                 ["title"] = title,
@@ -77,51 +74,86 @@ namespace OneeProject.Services.Services.Push
             };
 
             var invalid = new List<string>();
+            var isOffer = IsJobOffer(payload);
 
             foreach (var token in tokens)
             {
                 try
                 {
-                    var message = new Message
+                    // Job offers: data-only on Android so the worker app can
+                    // auto-open via full-screen intent + in-app popup.
+                    Message message;
+                    if (isOffer)
                     {
-                        Token = token,
-                        Notification = new FirebaseAdmin.Messaging.Notification
+                        message = new Message
                         {
-                            Title = title,
-                            Body = body
-                        },
-                        Data = payload,
-                        Android = new AndroidConfig
-                        {
-                            Priority = Priority.High,
-                            Notification = new AndroidNotification
+                            Token = token,
+                            Data = payload,
+                            Android = new AndroidConfig
                             {
-                                ChannelId = "onee_job_updates",
-                                // Drawable resource name (no @drawable/ prefix)
-                                Icon = "ic_stat_onee",
-                                Color = "#EBB407",
-                                DefaultSound = true,
-                                Priority = NotificationPriority.HIGH
-                            }
-                        },
-                        Apns = new ApnsConfig
-                        {
-                            Headers = new Dictionary<string, string>
-                            {
-                                { "apns-priority", "10" }
+                                Priority = Priority.High
                             },
-                            Aps = new Aps
+                            Apns = new ApnsConfig
                             {
-                                Alert = new ApsAlert
+                                Headers = new Dictionary<string, string>
                                 {
-                                    Title = title,
-                                    Body = body
+                                    { "apns-priority", "10" }
                                 },
-                                Sound = "default",
-                                ContentAvailable = true
+                                Aps = new Aps
+                                {
+                                    Alert = new ApsAlert
+                                    {
+                                        Title = title,
+                                        Body = body
+                                    },
+                                    Sound = "default",
+                                    ContentAvailable = true
+                                }
                             }
-                        }
-                    };
+                        };
+                    }
+                    else
+                    {
+                        message = new Message
+                        {
+                            Token = token,
+                            Notification = new FirebaseAdmin.Messaging.Notification
+                            {
+                                Title = title,
+                                Body = body
+                            },
+                            Data = payload,
+                            Android = new AndroidConfig
+                            {
+                                Priority = Priority.High,
+                                Notification = new AndroidNotification
+                                {
+                                    ChannelId = "onee_job_updates",
+                                    Icon = "ic_stat_onee",
+                                    Color = "#EBB407",
+                                    DefaultSound = true,
+                                    Priority = NotificationPriority.HIGH
+                                }
+                            },
+                            Apns = new ApnsConfig
+                            {
+                                Headers = new Dictionary<string, string>
+                                {
+                                    { "apns-priority", "10" }
+                                },
+                                Aps = new Aps
+                                {
+                                    Alert = new ApsAlert
+                                    {
+                                        Title = title,
+                                        Body = body
+                                    },
+                                    Sound = "default",
+                                    ContentAvailable = true
+                                }
+                            }
+                        };
+                    }
 
                     await FirebaseMessaging.DefaultInstance.SendAsync(message);
                 }
@@ -139,6 +171,14 @@ namespace OneeProject.Services.Services.Push
 
             if (invalid.Count > 0)
                 await _deviceTokens.RemoveTokensAsync(invalid);
+        }
+
+        private static bool IsJobOffer(Dictionary<string, string> data)
+        {
+            if (!data.TryGetValue("type", out var type) || string.IsNullOrWhiteSpace(type))
+                return false;
+            type = type.Trim().ToLowerInvariant();
+            return type is "job_offer" or "joboffer" or "offer";
         }
     }
 }

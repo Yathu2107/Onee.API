@@ -38,25 +38,38 @@ namespace OneeProject.Services.Services
             await _context.SaveChangesAsync();
         }
 
-        public async Task<List<NotificationModelForView>> GetMineAsync(string userId)
+        public async Task<List<NotificationModelForView>> GetMineAsync(
+            string userId,
+            string? type = null)
         {
-            var list = await _context.Notifications
-                .Where(n => n.FK_user_ID == userId)
+            var query = _context.Notifications.Where(n => n.FK_user_ID == userId);
+            if (!string.IsNullOrWhiteSpace(type))
+                query = query.Where(n => n.Type == type);
+
+            var list = await query
                 .OrderByDescending(n => n.CreatedOn)
                 .ToListAsync();
             return list.Select(Map).ToList();
         }
 
-        public async Task<int> GetUnreadCountAsync(string userId)
+        public async Task<int> GetUnreadCountAsync(string userId, string? type = null)
         {
-            return await _context.Notifications
-                .CountAsync(n => n.FK_user_ID == userId && !n.Is_Read);
+            var query = _context.Notifications
+                .Where(n => n.FK_user_ID == userId && !n.Is_Read);
+            if (!string.IsNullOrWhiteSpace(type))
+                query = query.Where(n => n.Type == type);
+
+            return await query.CountAsync();
         }
 
-        public async Task<Message<string>> MarkReadAsync(int id, string userId)
+        public async Task<Message<string>> MarkReadAsync(int id, string userId, string? type = null)
         {
-            var entity = await _context.Notifications
-                .FirstOrDefaultAsync(n => n.Id == id && n.FK_user_ID == userId);
+            var query = _context.Notifications
+                .Where(n => n.Id == id && n.FK_user_ID == userId);
+            if (!string.IsNullOrWhiteSpace(type))
+                query = query.Where(n => n.Type == type);
+
+            var entity = await query.FirstOrDefaultAsync();
             if (entity == null)
                 return new Message<string> { Status = "E", Text = "Notification not found.", Code = "404" };
 
@@ -71,11 +84,14 @@ namespace OneeProject.Services.Services
             };
         }
 
-        public async Task<Message<string>> MarkAllReadAsync(string userId)
+        public async Task<Message<string>> MarkAllReadAsync(string userId, string? type = null)
         {
-            var unread = await _context.Notifications
-                .Where(n => n.FK_user_ID == userId && !n.Is_Read)
-                .ToListAsync();
+            var query = _context.Notifications
+                .Where(n => n.FK_user_ID == userId && !n.Is_Read);
+            if (!string.IsNullOrWhiteSpace(type))
+                query = query.Where(n => n.Type == type);
+
+            var unread = await query.ToListAsync();
             foreach (var n in unread)
                 n.Is_Read = true;
             await _context.SaveChangesAsync();

@@ -42,15 +42,26 @@ namespace OneeProjectFEAPI.Realtime
             string? workerId,
             JobChatMessageModel message)
         {
+            // Fan out to job room for live chat UI, but only ping the
+            // recipient's personal group (never the sender).
             await _hub.Clients.Group(JobHub.JobGroup(jobId))
                 .SendAsync("ChatMessage", message);
 
-            await _hub.Clients.Group(JobHub.UserGroup(customerId))
-                .SendAsync("ChatMessage", message);
+            var sender = (message.FK_sender_ID ?? string.Empty).Trim();
+            var customer = (customerId ?? string.Empty).Trim();
+            var worker = (workerId ?? string.Empty).Trim();
 
-            if (!string.IsNullOrEmpty(workerId))
+            if (!string.IsNullOrEmpty(customer) &&
+                !string.Equals(sender, customer, StringComparison.OrdinalIgnoreCase))
             {
-                await _hub.Clients.Group(JobHub.UserGroup(workerId))
+                await _hub.Clients.Group(JobHub.UserGroup(customer))
+                    .SendAsync("ChatMessage", message);
+            }
+
+            if (!string.IsNullOrEmpty(worker) &&
+                !string.Equals(sender, worker, StringComparison.OrdinalIgnoreCase))
+            {
+                await _hub.Clients.Group(JobHub.UserGroup(worker))
                     .SendAsync("ChatMessage", message);
             }
         }

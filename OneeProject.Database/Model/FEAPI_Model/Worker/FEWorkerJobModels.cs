@@ -15,4 +15,9 @@ namespace OneeProject.Database.Model.FEAPI_Model.Worker
     {
         public string Message { get; set; } = string.Empty;
     }
+
+    public class FEWorkerSaveCategoriesRequest
+    {
+        public List<int> CategoryIds { get; set; } = new();
+    }
 }
