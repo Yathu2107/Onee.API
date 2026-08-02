@@ -11,6 +11,11 @@ namespace OneeProject.Database.Model.FEAPI_Model.User
         public string Text { get; set; } = string.Empty;
     }
 
+    public class FEJobFindWorkersByCategoryRequest
+    {
+        public int CategoryId { get; set; }
+    }
+
     public class FEJobCreateRequest
     {
         public string Text { get; set; } = string.Empty;

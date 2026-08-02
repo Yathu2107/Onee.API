@@ -17,6 +17,9 @@ namespace OneeProject.Services.Services
             PropertyNameCaseInsensitive = true
         };
 
+        /// <summary>
+        /// AI text path — predicts category name then matches workers.
+        /// </summary>
         public async Task<Message<JobMatchResultModel>> FindWorkersByTextAsync(string text, string userId)
         {
             if (string.IsNullOrWhiteSpace(text))
@@ -30,49 +33,9 @@ namespace OneeProject.Services.Services
                 };
             }
 
-            if (string.IsNullOrWhiteSpace(userId))
-            {
-                return new Message<JobMatchResultModel>
-                {
-                    Status = "E",
-                    Text = "UserId is required.",
-                    Code = "400",
-                    Result = null
-                };
-            }
-
-            var selectedUser = await _context.Users
-                .Where(u => u.Id == userId)
-                .Select(u => new { u.Id, u.Name })
-                .FirstOrDefaultAsync();
-
-            if (selectedUser == null)
-            {
-                return new Message<JobMatchResultModel>
-                {
-                    Status = "E",
-                    Text = "Selected user not found.",
-                    Code = "404",
-                    Result = null
-                };
-            }
-
-            var customerAddress = await _context.SavedAddresses
-                .FirstOrDefaultAsync(a => a.FK_user_ID == userId && a.Is_Default);
-
-            if (customerAddress == null)
-            {
-                return new Message<JobMatchResultModel>
-                {
-                    Status = "E",
-                    Text = "Selected user does not have a default saved address.",
-                    Code = "400",
-                    Result = null
-                };
-            }
-
-            var userLat = customerAddress.Latitude;
-            var userLng = customerAddress.Longitude;
+            var location = await ResolveCustomerLocationAsync(userId);
+            if (location.Error != null)
+                return location.Error;
 
             var aiResult = await PredictCategoryAsync(text.Trim());
             if (aiResult.Status != "S" || aiResult.Result == null)
@@ -90,28 +53,132 @@ namespace OneeProject.Services.Services
             var confidence = aiResult.Result.Confidence;
 
             if (string.IsNullOrWhiteSpace(predictedCategory))
-            {
                 return NoWorkersAvailable(predictedCategory, confidence);
-            }
 
-            // Match AI category name with m_categories.Category_Name
             var category = await _context.Categories
                 .Where(c => !c.Isdelete && c.Category_Name.ToLower() == predictedCategory.ToLower())
                 .Select(c => new { c.Id, c.Category_Name })
                 .FirstOrDefaultAsync();
 
-            // Category not in DB → no workers available for this work
             if (category == null)
-            {
                 return NoWorkersAvailable(predictedCategory, confidence);
+
+            return await MatchWorkersForCategoryAsync(
+                category.Id,
+                category.Category_Name,
+                predictedCategory,
+                confidence,
+                location.Latitude,
+                location.Longitude);
+        }
+
+        /// <summary>
+        /// Manual category path — user picks categoryId from Admin list (no AI).
+        /// </summary>
+        public async Task<Message<JobMatchResultModel>> FindWorkersByCategoryIdAsync(
+            int categoryId,
+            string userId)
+        {
+            if (categoryId <= 0)
+            {
+                return new Message<JobMatchResultModel>
+                {
+                    Status = "E",
+                    Text = "A valid CategoryId is required.",
+                    Code = "400",
+                    Result = null
+                };
             }
 
-            // Workers linked via t_worker_categories who have a default saved address
+            var location = await ResolveCustomerLocationAsync(userId);
+            if (location.Error != null)
+                return location.Error;
+
+            var category = await _context.Categories
+                .Where(c => c.Id == categoryId && !c.Isdelete)
+                .Select(c => new { c.Id, c.Category_Name })
+                .FirstOrDefaultAsync();
+
+            if (category == null)
+            {
+                return new Message<JobMatchResultModel>
+                {
+                    Status = "E",
+                    Text = "Category not found.",
+                    Code = "404",
+                    Result = null
+                };
+            }
+
+            return await MatchWorkersForCategoryAsync(
+                category.Id,
+                category.Category_Name,
+                category.Category_Name,
+                confidence: 1.0,
+                location.Latitude,
+                location.Longitude);
+        }
+
+        private async Task<(double Latitude, double Longitude, Message<JobMatchResultModel>? Error)>
+            ResolveCustomerLocationAsync(string userId)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return (0, 0, new Message<JobMatchResultModel>
+                {
+                    Status = "E",
+                    Text = "UserId is required.",
+                    Code = "400",
+                    Result = null
+                });
+            }
+
+            var selectedUser = await _context.Users
+                .Where(u => u.Id == userId)
+                .Select(u => new { u.Id })
+                .FirstOrDefaultAsync();
+
+            if (selectedUser == null)
+            {
+                return (0, 0, new Message<JobMatchResultModel>
+                {
+                    Status = "E",
+                    Text = "Selected user not found.",
+                    Code = "404",
+                    Result = null
+                });
+            }
+
+            var customerAddress = await _context.SavedAddresses
+                .FirstOrDefaultAsync(a => a.FK_user_ID == userId && a.Is_Default);
+
+            if (customerAddress == null)
+            {
+                return (0, 0, new Message<JobMatchResultModel>
+                {
+                    Status = "E",
+                    Text = "Selected user does not have a default saved address.",
+                    Code = "400",
+                    Result = null
+                });
+            }
+
+            return (customerAddress.Latitude, customerAddress.Longitude, null);
+        }
+
+        private async Task<Message<JobMatchResultModel>> MatchWorkersForCategoryAsync(
+            int categoryId,
+            string categoryName,
+            string predictedLabel,
+            double confidence,
+            double userLat,
+            double userLng)
+        {
             var workers = await (
                 from wc in _context.WorkerCategories
                 join u in _context.Users on wc.FK_user_ID equals u.Id
                 join addr in _context.SavedAddresses on u.Id equals addr.FK_user_ID
-                where wc.Category_id == category.Id
+                where wc.Category_id == categoryId
                       && u.IsActive
                       && u.IsOnline
                       && u.UserType == "Worker"
@@ -131,7 +198,6 @@ namespace OneeProject.Services.Services
                 })
                 .ToListAsync();
 
-            // Filter workers within 7 km of the customer's default address
             var nearbyWorkers = workers
                 .GroupBy(w => w.Id)
                 .Select(g => g.First())
@@ -148,9 +214,7 @@ namespace OneeProject.Services.Services
                 .ToList();
 
             if (nearbyWorkers.Count == 0)
-            {
-                return NoWorkersAvailable(predictedCategory, confidence, category.Id, category.Category_Name);
-            }
+                return NoWorkersAvailable(predictedLabel, confidence, categoryId, categoryName);
 
             var workerIds = nearbyWorkers.Select(w => w.Id).ToList();
             var ratingLookup = await _context.JobRatings
@@ -180,18 +244,15 @@ namespace OneeProject.Services.Services
                 Code = "200",
                 Result = new JobMatchResultModel
                 {
-                    Predicted_Category = predictedCategory,
+                    Predicted_Category = predictedLabel,
                     Confidence = confidence,
-                    Category_id = category.Id,
-                    Category_Name = category.Category_Name,
+                    Category_id = categoryId,
+                    Category_Name = categoryName,
                     Workers = nearbyWorkers
                 }
             };
         }
 
-        /// <summary>
-        /// Haversine distance in kilometers between two coordinates.
-        /// </summary>
         private static double GetDistanceKm(double lat1, double lon1, double lat2, double lon2)
         {
             const double earthRadiusKm = 6371.0;

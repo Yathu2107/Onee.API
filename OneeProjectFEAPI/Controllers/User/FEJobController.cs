@@ -25,6 +25,18 @@ namespace OneeProjectFEAPI.Controllers.User
             return result.Status == "S" ? Ok(result) : BadRequest(result);
         }
 
+        /// <summary>
+        /// Additional path: user manually selects an Admin category, then find nearby workers.
+        /// </summary>
+        [HttpPost]
+        [Route(API_ROUTE_NAME + "/find-workers-by-category")]
+        public async Task<IActionResult> FindWorkersByCategory([FromBody] FEJobFindWorkersByCategoryRequest model)
+        {
+            var result = await _jobService.FindWorkersByCategoryAsync(model.CategoryId, CurrentUserId);
+            if (result.Code == "404") return NotFound(result);
+            return result.Status == "S" ? Ok(result) : BadRequest(result);
+        }
+
         [HttpPost]
         [Route(API_ROUTE_NAME + "/create")]
         public async Task<IActionResult> Create([FromBody] FEJobCreateRequest model)

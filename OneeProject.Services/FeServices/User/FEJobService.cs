@@ -18,6 +18,9 @@ namespace OneeProject.Services.FeServices.User
         public Task<Message<JobMatchResultModel>> FindWorkersAsync(string text, string customerId)
             => _jobMatchService.FindWorkersByTextAsync(text, customerId);
 
+        public Task<Message<JobMatchResultModel>> FindWorkersByCategoryAsync(int categoryId, string customerId)
+            => _jobMatchService.FindWorkersByCategoryIdAsync(categoryId, customerId);
+
         public Task<Message<JobModelForDetailView>> CreateAsync(FEJobCreateRequest model, string customerId)
             => _jobService.CreateJobAsync(new JobCreateModel
             {
