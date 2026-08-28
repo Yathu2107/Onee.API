@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using OneeProject.Database.Common;
 using OneeProject.Database.Context;
 using OneeProject.Database.Model.API_Model;
@@ -14,11 +15,13 @@ namespace OneeProject.Services.Services
     public class JobService(
         AppDbContext context,
         IHttpClientFactory httpClientFactory,
-        IJobRealtimeNotifier notifier)
+        IJobRealtimeNotifier notifier,
+        IConfiguration config)
     {
         private readonly AppDbContext _context = context;
         private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
         private readonly IJobRealtimeNotifier _notifier = notifier;
+        private readonly IConfiguration _config = config;
         private static readonly TimeSpan OfferTimeout = TimeSpan.FromMinutes(1);
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -170,7 +173,15 @@ namespace OneeProject.Services.Services
                 return ErrorDetail("Job is not in offering status.", "400");
 
             await AdvanceOfferAsync(job, updatedBy);
-            return await OkDetailNotifyOfferOrUpdated(job.Id, "Offer cancelled. Moved to next worker if available.");
+
+            var detail = await GetJobDetailAsync(job.Id);
+            return new Message<JobModelForDetailView>
+            {
+                Status = "S",
+                Text = "Offer cancelled. Moved to next worker if available.",
+                Code = "200",
+                Result = detail
+            };
         }
 
         public async Task AdvanceOfferAsync(Job job, string updatedBy)
@@ -437,6 +448,37 @@ namespace OneeProject.Services.Services
 
             var rating = await GetJobRatingAsync(jobId);
 
+            var customer = await _context.Users
+                .AsNoTracking()
+                .Where(u => u.Id == job.FK_customer_ID)
+                .Select(u => new { u.Name, u.ProfileImageUrl })
+                .FirstOrDefaultAsync();
+
+            string? workerName = null;
+            string? workerImageRaw = null;
+            if (!string.IsNullOrEmpty(job.FK_worker_ID))
+            {
+                var worker = await _context.Users
+                    .AsNoTracking()
+                    .Where(u => u.Id == job.FK_worker_ID)
+                    .Select(u => new { u.Name, u.ProfileImageUrl })
+                    .FirstOrDefaultAsync();
+                if (worker != null)
+                {
+                    workerName = worker.Name;
+                    workerImageRaw = worker.ProfileImageUrl;
+                }
+            }
+
+            var uploadPath = _config["EnvironmentSetting:UploadPath"];
+            var customerImageUrl = CommonResources.BuildUploadUrl(
+                uploadPath,
+                "User",
+                customer?.ProfileImageUrl);
+            var workerImageUrl = string.IsNullOrEmpty(job.FK_worker_ID)
+                ? null
+                : CommonResources.BuildUploadUrl(uploadPath, "Worker", workerImageRaw);
+
             return new JobModelForDetailView
             {
                 Id = job.Id,
@@ -447,17 +489,11 @@ namespace OneeProject.Services.Services
                     .Select(c => c.Category_Name)
                     .FirstOrDefaultAsync() ?? "",
                 FK_customer_ID = job.FK_customer_ID,
-                Customer_Name = await _context.Users
-                    .Where(u => u.Id == job.FK_customer_ID)
-                    .Select(u => u.Name)
-                    .FirstOrDefaultAsync() ?? "",
+                Customer_Name = customer?.Name ?? "",
+                Customer_Image_Url = customerImageUrl,
                 FK_worker_ID = job.FK_worker_ID,
-                Worker_Name = job.FK_worker_ID == null
-                    ? null
-                    : await _context.Users
-                        .Where(u => u.Id == job.FK_worker_ID)
-                        .Select(u => u.Name)
-                        .FirstOrDefaultAsync(),
+                Worker_Name = workerName,
+                Worker_Image_Url = workerImageUrl,
                 Status = job.Status,
                 Amount = job.Amount,
                 Cancel_Reason = job.Cancel_Reason,

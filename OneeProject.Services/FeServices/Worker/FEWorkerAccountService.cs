@@ -637,7 +637,7 @@ namespace OneeProject.Services.FeServices.Worker
             {
                 Name = user.Name,
                 Email = user.Email ?? string.Empty,
-                ProImg = $"{uploadPath}/Worker/{user.ProfileImageUrl}",
+                ProImg = CommonResources.BuildUploadUrl(uploadPath, "Worker", user.ProfileImageUrl),
                 PhoneNumber = user.PhoneNumber ?? string.Empty,
                 IsActive = user.IsActive,
                 IsOnline = user.IsOnline,

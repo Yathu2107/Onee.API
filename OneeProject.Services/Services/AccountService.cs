@@ -38,7 +38,11 @@ namespace OneeProject.Services.Services
                     string[] imageProperties = { "ProfileImageUrl" };
                     IFormFile[] images = { u.Image };
 
-                    u = SaveFiles.SetImageUrl(u, images, imageProperties, "User");
+                    u = SaveFiles.SetImageUrl(
+                        u,
+                        images,
+                        imageProperties,
+                        CommonResources.UploadFolderForUserType(u.UserType));
                 }
 
                 // Password is required
@@ -411,7 +415,14 @@ namespace OneeProject.Services.Services
             {
                 string[] imageProperties = { "ProfileImageUrl" };
                 IFormFile[] images = { model.Image };
-                model = SaveFiles.SetImageUrl(model, images, imageProperties, "User");
+                model = SaveFiles.SetImageUrl(
+                    model,
+                    images,
+                    imageProperties,
+                    CommonResources.UploadFolderForUserType(
+                        string.IsNullOrWhiteSpace(model.UserType)
+                            ? existUser.UserType
+                            : model.UserType));
             }
 
             // Update basic info

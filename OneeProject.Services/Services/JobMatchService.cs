@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using OneeProject.Database.Common;
 using OneeProject.Database.Context;
 using OneeProject.Database.Model.API_Model;
@@ -7,10 +8,14 @@ using System.Text.Json;
 
 namespace OneeProject.Services.Services
 {
-    public class JobMatchService(AppDbContext context, IHttpClientFactory httpClientFactory)
+    public class JobMatchService(
+        AppDbContext context,
+        IHttpClientFactory httpClientFactory,
+        IConfiguration config)
     {
         private readonly AppDbContext _context = context;
         private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
+        private readonly IConfiguration _config = config;
         private const double SearchRadiusKm = 7.0;
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -228,8 +233,14 @@ namespace OneeProject.Services.Services
                 })
                 .ToDictionaryAsync(x => x.WorkerId);
 
+            var uploadPath = _config["EnvironmentSetting:UploadPath"] ?? "";
             foreach (var worker in nearbyWorkers)
             {
+                worker.ProfileImageUrl = CommonResources.BuildUploadUrl(
+                    uploadPath,
+                    "Worker",
+                    worker.ProfileImageUrl);
+
                 if (ratingLookup.TryGetValue(worker.Id, out var stats))
                 {
                     worker.AverageRating = Math.Round(stats.Average, 1);

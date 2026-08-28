@@ -61,8 +61,8 @@ namespace OneeProject.Database.Common
         }
 
         /// <summary>
-        /// Returns the absolute file path to the wwwroot folder.
-        /// Ensures consistency for saving uploaded files.
+        /// Absolute path to the shared wwwroot folder (OneeProjectAPI).
+        /// Both Admin API and FEAPI write uploads here.
         /// </summary>
         private static string? _systemFilePath;
 
@@ -71,24 +71,66 @@ namespace OneeProject.Database.Common
             get
             {
                 if (string.IsNullOrWhiteSpace(_systemFilePath))
-                {
-                    string basePath = Directory.GetCurrentDirectory();
+                    ConfigureFileStorage(null);
 
-                    // Usually folder name is "wwwroot"
-                    string wwwrootPath = Path.Combine(basePath, "wwwroot");
-
-                    if (!Directory.Exists(wwwrootPath))
-                        Directory.CreateDirectory(wwwrootPath);
-
-                    _systemFilePath = wwwrootPath;
-                }
-
-                return _systemFilePath;
+                return _systemFilePath!;
             }
-            set
+            set => ConfigureFileStorage(value);
+        }
+
+        /// <summary>
+        /// Points file storage at <paramref name="storagePath"/> when set (FEAPI uses
+        /// OneeProjectAPI wwwroot). Empty/null falls back to this process wwwroot.
+        /// </summary>
+        public static void ConfigureFileStorage(string? storagePath)
+        {
+            string wwwrootPath;
+            if (!string.IsNullOrWhiteSpace(storagePath))
             {
-                _systemFilePath = value;
+                wwwrootPath = Path.GetFullPath(storagePath);
             }
+            else
+            {
+                wwwrootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+            }
+
+            Directory.CreateDirectory(wwwrootPath);
+            Directory.CreateDirectory(Path.Combine(wwwrootPath, "Uploads", "UploadImages", "User"));
+            Directory.CreateDirectory(Path.Combine(wwwrootPath, "Uploads", "UploadImages", "Worker"));
+            _systemFilePath = wwwrootPath;
+        }
+
+        public static string UploadFolderForUserType(string? userType)
+            => string.Equals(userType, "Worker", StringComparison.OrdinalIgnoreCase)
+                ? "Worker"
+                : "User";
+
+        /// <summary>
+        /// Builds a public URL under OneeProjectAPI static files.
+        /// DB still stores the filename only.
+        /// </summary>
+        public static string BuildUploadUrl(string? uploadBase, string folder, string? fileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName))
+                return string.Empty;
+
+            var name = fileName.Trim();
+            if (name.Equals("Default.png", StringComparison.OrdinalIgnoreCase))
+                return string.Empty;
+
+            if (name.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                || name.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                return name;
+
+            var baseUrl = (uploadBase ?? string.Empty).Trim().TrimEnd('/');
+            if (string.IsNullOrWhiteSpace(baseUrl))
+                return name;
+
+            var folderName = string.IsNullOrWhiteSpace(folder)
+                ? "User"
+                : folder.Trim().Trim('/');
+
+            return $"{baseUrl}/{folderName}/{name}";
         }
     }
 }

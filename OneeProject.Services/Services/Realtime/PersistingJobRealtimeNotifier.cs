@@ -1,4 +1,5 @@
 using OneeProject.Database.Context;
+using OneeProject.Database.Context;
 using OneeProject.Database.Model.API_Model;
 
 namespace OneeProject.Services.Services.Realtime
@@ -39,7 +40,8 @@ namespace OneeProject.Services.Services.Realtime
                 NotificationTypes.JobUpdated,
                 job.Id);
 
-            if (!string.IsNullOrEmpty(job.FK_worker_ID))
+            if (!string.IsNullOrEmpty(job.FK_worker_ID)
+                && job.Status != JobStatuses.Offering)
             {
                 await _notificationService.CreateInboxAsync(
                     job.FK_worker_ID,
@@ -58,7 +60,10 @@ namespace OneeProject.Services.Services.Realtime
             string? workerId,
             JobChatMessageModel message)
         {
-            var recipient = ResolveChatRecipient(customerId, workerId, message.FK_sender_ID);
+            var recipient = JobNotificationHelper.ResolveChatRecipient(
+                customerId,
+                workerId,
+                message.FK_sender_ID);
             if (!string.IsNullOrEmpty(recipient))
             {
                 await _notificationService.CreateInboxAsync(
@@ -70,39 +75,6 @@ namespace OneeProject.Services.Services.Realtime
             }
 
             await _inner.NotifyChatMessageAsync(jobId, customerId, workerId, message);
-        }
-
-        private static string? ResolveChatRecipient(
-            string customerId,
-            string? workerId,
-            string? senderId)
-        {
-            var sender = (senderId ?? string.Empty).Trim();
-            var customer = (customerId ?? string.Empty).Trim();
-            var worker = (workerId ?? string.Empty).Trim();
-
-            if (string.IsNullOrEmpty(sender))
-                return null;
-
-            string? recipient;
-            if (string.Equals(sender, customer, StringComparison.OrdinalIgnoreCase))
-                recipient = string.IsNullOrEmpty(worker) ? null : worker;
-            else if (string.Equals(sender, worker, StringComparison.OrdinalIgnoreCase))
-                recipient = string.IsNullOrEmpty(customer) ? null : customer;
-            else if (!string.IsNullOrEmpty(customer) &&
-                     !string.Equals(sender, customer, StringComparison.OrdinalIgnoreCase))
-                recipient = customer;
-            else if (!string.IsNullOrEmpty(worker) &&
-                     !string.Equals(sender, worker, StringComparison.OrdinalIgnoreCase))
-                recipient = worker;
-            else
-                recipient = null;
-
-            if (!string.IsNullOrEmpty(recipient) &&
-                string.Equals(recipient, sender, StringComparison.OrdinalIgnoreCase))
-                return null;
-
-            return recipient;
         }
 
         private static string Truncate(string? value, int max)
