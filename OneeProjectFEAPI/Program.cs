@@ -138,6 +138,12 @@ builder.Services.AddCors(options =>
 
 CommonResources.SecretKey = builder.Configuration["Security:SecretKey"];
 
+var storagePath = builder.Configuration["EnvironmentSetting:FileStoragePath"]
+    ?? builder.Configuration["EnvironmentSetting:BEUploadPath"];
+if (!string.IsNullOrWhiteSpace(storagePath) && !Path.IsPathRooted(storagePath))
+    storagePath = Path.Combine(builder.Environment.ContentRootPath, storagePath);
+CommonResources.ConfigureFileStorage(storagePath);
+
 var app = builder.Build();
 
 app.UseCors("AllowReactApp");

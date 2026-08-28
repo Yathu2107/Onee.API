@@ -66,8 +66,10 @@ namespace OneeProject.Database.Model.API_Model
         public string Category_Name { get; set; } = string.Empty;
         public string FK_customer_ID { get; set; } = string.Empty;
         public string Customer_Name { get; set; } = string.Empty;
+        public string Customer_Image_Url { get; set; } = string.Empty;
         public string? FK_worker_ID { get; set; }
         public string? Worker_Name { get; set; }
+        public string? Worker_Image_Url { get; set; }
         public string Status { get; set; } = string.Empty;
         public decimal? Amount { get; set; }
         public string? Cancel_Reason { get; set; }

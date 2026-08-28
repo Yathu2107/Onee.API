@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using OneeProject.Database.Common;
 using OneeProject.Database.Context;
 using OneeProject.Services.FeServices;
 using OneeProject.Services.Services;
@@ -120,6 +121,15 @@ builder.Services.AddCors(options =>
               .AllowCredentials();
     });
 });
+
+CommonResources.ConfigureFileStorage(
+    string.IsNullOrWhiteSpace(builder.Configuration["EnvironmentSetting:FileStoragePath"])
+        ? Path.Combine(builder.Environment.ContentRootPath, "wwwroot")
+        : Path.IsPathRooted(builder.Configuration["EnvironmentSetting:FileStoragePath"]!)
+            ? builder.Configuration["EnvironmentSetting:FileStoragePath"]
+            : Path.Combine(
+                builder.Environment.ContentRootPath,
+                builder.Configuration["EnvironmentSetting:FileStoragePath"]!));
 
 var app = builder.Build();
 

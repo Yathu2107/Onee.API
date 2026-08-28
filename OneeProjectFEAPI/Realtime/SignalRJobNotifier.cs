@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
+using OneeProject.Database.Context;
 using OneeProject.Database.Model.API_Model;
 using OneeProject.Services.Services.Realtime;
 using OneeProjectFEAPI.Hubs;
@@ -17,6 +18,7 @@ namespace OneeProjectFEAPI.Realtime
             await _hub.Clients.Group(JobHub.UserGroup(job.FK_worker_ID))
                 .SendAsync("JobOffer", job);
 
+            // Customer live UI (requesting screen) — worker is not notified here.
             await _hub.Clients.Group(JobHub.UserGroup(job.FK_customer_ID))
                 .SendAsync("JobUpdated", job);
         }
@@ -26,14 +28,13 @@ namespace OneeProjectFEAPI.Realtime
             await _hub.Clients.Group(JobHub.UserGroup(job.FK_customer_ID))
                 .SendAsync("JobUpdated", job);
 
-            if (!string.IsNullOrEmpty(job.FK_worker_ID))
+            // While Offering, only the current worker receives JobOffer — not JobUpdated.
+            if (!string.IsNullOrEmpty(job.FK_worker_ID)
+                && job.Status != JobStatuses.Offering)
             {
                 await _hub.Clients.Group(JobHub.UserGroup(job.FK_worker_ID))
                     .SendAsync("JobUpdated", job);
             }
-
-            await _hub.Clients.Group(JobHub.JobGroup(job.Id))
-                .SendAsync("JobUpdated", job);
         }
 
         public async Task NotifyChatMessageAsync(
@@ -42,28 +43,17 @@ namespace OneeProjectFEAPI.Realtime
             string? workerId,
             JobChatMessageModel message)
         {
-            // Fan out to job room for live chat UI, but only ping the
-            // recipient's personal group (never the sender).
-            await _hub.Clients.Group(JobHub.JobGroup(jobId))
+            var recipient = JobNotificationHelper.ResolveChatRecipient(
+                customerId,
+                workerId,
+                message.FK_sender_ID);
+
+            if (string.IsNullOrEmpty(recipient))
+                return;
+
+            // Deliver only to the recipient's personal group — never the sender or job room.
+            await _hub.Clients.Group(JobHub.UserGroup(recipient))
                 .SendAsync("ChatMessage", message);
-
-            var sender = (message.FK_sender_ID ?? string.Empty).Trim();
-            var customer = (customerId ?? string.Empty).Trim();
-            var worker = (workerId ?? string.Empty).Trim();
-
-            if (!string.IsNullOrEmpty(customer) &&
-                !string.Equals(sender, customer, StringComparison.OrdinalIgnoreCase))
-            {
-                await _hub.Clients.Group(JobHub.UserGroup(customer))
-                    .SendAsync("ChatMessage", message);
-            }
-
-            if (!string.IsNullOrEmpty(worker) &&
-                !string.Equals(sender, worker, StringComparison.OrdinalIgnoreCase))
-            {
-                await _hub.Clients.Group(JobHub.UserGroup(worker))
-                    .SendAsync("ChatMessage", message);
-            }
         }
     }
 }
